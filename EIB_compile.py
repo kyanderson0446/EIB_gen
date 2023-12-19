@@ -15,58 +15,68 @@ The saved file is then uploaded to Workday to upload all facilities at once.
 """
 
 
-def year_fix():
-    year_input = int(input("What year?: "))
-    year_folder = fr"C:\Users\kyle.anderson\OneDrive - PACS\backup\Documents\Courtney\{year_input}"
-    for filename in os.listdir(year_folder):
-        if filename.endswith(".xlsx"):  # Assuming your files have the .xlsx extension
-            file_path = os.path.join(year_folder, filename)
+def open_workbook(file_path):
+    """Open an Excel workbook and return the Workbook object."""
+    return xw.Book(file_path)
 
-            # Open the Excel workbook
-            wb = xw.Book(file_path)
+
+def process_facility_files(year_folder, year_input):
+    """Process all individual facility files in a given year folder."""
+    for filename in os.listdir(year_folder):
+        if filename.endswith(".xlsx"):
+            file_path = os.path.join(year_folder, filename)
+            wb = open_workbook(file_path)
 
             try:
-                # Access the "Sheet1" (change the sheet name as needed) and set the value in the specified range
-                wb.sheets["Budget Lines Data"].range("F6:F1241").value = year_input
-
-                # Save the changes
+                sheet = wb.sheets["Budget Lines Data"]
+                sheet.range("F6:F1241").value = year_input
                 wb.save()
                 print(f"Changes saved in {filename}")
             except Exception as e:
                 print(f"Error processing {filename}: {e}")
             finally:
-                # Close the workbook
                 wb.close()
 
     print("Processing complete.")
 
 
+def compile_facility_files():
+    """Compile data from individual facility files into one main file."""
+    app = xw.App(add_book=False)
+    xlwings.App.display_alerts = False
+    main_eib = open_workbook(fr"C:\Users\kyle.anderson\OneDrive - PACS\backup\Documents\WD_upload_budget_main.xlsx")
+    path = fr"C:\Users\kyle.anderson\OneDrive - PACS\backup\Documents\Courtney\Ross\2024\*.xlsx"
+    x = 6
 
-################################
-app = xw.App(add_book=False)
-xlwings.App.display_alerts = False
-main_eib = xw.Book(fr"C:\Users\kyle.anderson\OneDrive - PACS\backup\Documents\WD_upload_budget_main.xlsx")
-path = fr"C:\Users\kyle.anderson\OneDrive - PACS\backup\Documents\Courtney\Ross\2024\*.xlsx"
-x = 6
+    for file in glob(path):
+        print(file)
+        budget_wb = open_workbook(file, update_links=False)
+        upload_page = budget_wb.sheets("Budget Lines Data")
 
-################################
-for file in glob(path):
-    year_fix()
-    print(file)
-    budget_wb = xw.Book(file, update_links=False)
-    upload_page = budget_wb.sheets("Budget Lines Data")
+        upload_data = upload_page.range("B6:M1241")
+        time.sleep(1)
 
-    upload_data = upload_page.range("B6:M1241")
-    time.sleep(1)
+        main_eib.sheets["Budget Lines Data"].range(f"B{x}:M{x}").value = upload_data.value
+        time.sleep(1)
 
-    main_eib.sheets["Budget Lines Data"].range(f"B{x}:M{x}").value = upload_data.value
-    time.sleep(1)
+        x += 1236
 
-    x += 1236
+        budget_wb.close()
 
-    budget_wb.close()
-print("STOP \n " * 3)
-################################
-main_eib.save(fr"C:\Users\kyle.anderson\OneDrive - PACS\backup\Documents\Courtney\Ross_compile_12.18.1_2024.xlsx")
+    main_eib.save(fr"C:\Users\kyle.anderson\OneDrive - PACS\backup\Documents\Courtney\Ross_compile_12.18.1_2024.xlsx")
 
-    
+
+def main():
+    """Main function to execute the entire process."""
+    year_input = int(input("What year?: "))
+    year_folder = fr"C:\Users\kyle.anderson\OneDrive - PACS\backup\Documents\Courtney\{year_input}"
+
+    # Process individual facility files
+    process_facility_files(year_folder, year_input)
+
+    # Compile data into a main file
+    compile_facility_files()
+
+
+if __name__ == "__main__":
+    main()
